@@ -1,0 +1,11 @@
+streamlit>=1.20
+pandas
+openai
+python-dotenv
+sentence-transformers
+scikit-learn
+joblib
+pydantic
+sentence-transformers
+seaborn
+boto3
