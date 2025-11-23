@@ -10,7 +10,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.neighbors import NearestNeighbors
 
 # Find listings similar to a given listing based on text embeddings
-def find_similar_listings(query_text: str, n_neighbors: int = 5):
+def find_similar_listings(query_text: str, n_neighbors: int = 10):
     """
     Finds N most similar listings based on a combination of text query and property attributes.
 
@@ -39,7 +39,7 @@ def find_similar_listings(query_text: str, n_neighbors: int = 5):
 
 
 # Function to query similar listings and show example usage
-def query_similar_listings_example(query_text: str, n_neighbors: int = 5):
+def query_similar_listings_example(query_text: str, n_neighbors: int = 10):
     """Demonstrates how to find similar listings based on a text query.
     Returns json with indices and details of similar listings."""
 
@@ -324,7 +324,7 @@ get_similar_listings_json = {
             "n_neighbors": {
                 "type": "integer",
                 "description": "Número de listings similares a retornar.",
-                "default": 5
+                "default": 10
             }
         },
         "required": ["query_text"],
