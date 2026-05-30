@@ -211,3 +211,5 @@ __marimo__/
 db/
 data/
 models/
+
+.DS_Store

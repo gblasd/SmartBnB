@@ -9,3 +9,4 @@ pydantic
 sentence-transformers
 seaborn
 boto3
+pytest
