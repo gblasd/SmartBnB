@@ -8,5 +8,11 @@ dashboard:
 test:
 	python -m pytest test.py
 	
-run_etl:
+listings_loader:
 	cd src && python3 -m ingestion.listings_loader
+
+calendar_loader:
+	cd src && python3 -m ingestion.calendar_loader
+
+reviews_loader:
+	cd src && python3 -m ingestion.reviews_loader

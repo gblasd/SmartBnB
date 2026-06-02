@@ -1,9 +1,9 @@
-CREATE TABLE IF NOT EXISTS reviews (
-    listing_id NUMERIC(10),
-    id NUMERIC(10),
-    date DATE,
-    reviewer_id NUMERIC(10),
-    reviewer_name TEXT,
-    comments TEXT,
-    año_trimestre NUMERIC(7)
+create table if not exists reviews (
+    listing_id numeric(50),
+    id numeric(50),
+    date date,
+    reviewer_id numeric(50),
+    reviewer_name text,
+    comments text,
+    primary key (id)
 );
