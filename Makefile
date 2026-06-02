@@ -8,3 +8,5 @@ dashboard:
 test:
 	python -m pytest test.py
 	
+run_etl:
+	cd src && python3 -m ingestion.listings_loader
