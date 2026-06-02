@@ -1,0 +1,28 @@
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: smartbnb_db
+
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: smartbnb
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  dashboard:
+    build: . # Build the image from the current directory
+    container_name: smartbnb
+    ports: # Expose port 8501 for the Streamlit app
+      - "8501:8501"
+    volumes:
+      - .:/app # SQLite database volume outside the container
+    #command: streamlit run src/dashboard/App.py --server.port 8501 --server.address 0.0.0.0
+
+
+volumes:
+  postgres_data:
+

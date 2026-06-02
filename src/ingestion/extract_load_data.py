@@ -1,49 +1,13 @@
 import os
-import pandas as pd
 import numpy as np
-import requests
+import pandas as pd
 import sqlite3
-import logging
+
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 import joblib
-import json
+
 from pathlib import Path
-
-from sentence_transformers import SentenceTransformer
-from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.neighbors import NearestNeighbors
-
-
-def encode_text_listings(listings: pd.DataFrame) -> pd.DataFrame:
-    """
-    Encode text data from listings
-    - Parameters: 
-        - DataFrame: listings dataframe
-    - Returns:
-        - DataFrame: listings with text columns encoded
-    """
-
-    from sentence_transformers import SentenceTransformer
-    # from sklearn.preprocessing import StandardScaler # for tabular data, next steps
-    import joblib
-
-    text_columns = ['name', 'description', 'amenities_parsed']
-
-    # Fill NaN values with empty strings for the selected text columns
-    for col in text_columns:
-        listings[col] = listings[col].fillna('')
-
-    # Concatenate the cleaned text columns into 'combined_text'
-    listings['combined_text'] = listings.apply(lambda row: ' '.join([str(row[col]) for col in text_columns]), axis=1)
-
-    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    text_embeddings = model.encode(listings['combined_text'].tolist(), show_progress_bar=False)
-
-    text_embeddings_df = pd.DataFrame(text_embeddings, index=listings.index)
-    listings = pd.concat([listings, text_embeddings_df], axis=1)
-
-    return listings
-
-
+import psycopg2
 
 
 def read_url(link):
@@ -64,11 +28,10 @@ def read_url(link):
 
     return df
 
-
 def extract_transform_listings() -> pd.DataFrame:
     listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-06-25/data/listings.csv.gz')
 
-    listings['price'] = listings['price'].replace('[\$,]', '', regex=True).astype(float)
+    listings['price'] = listings['price'].replace(r'[\$,]', '', regex=True).astype(float)
 
     # listings.filter(like='host_').columns
     host_factors = [
@@ -277,6 +240,7 @@ def extract_transform_listings() -> pd.DataFrame:
 
     return listings[structural_columns]
 
+
 def extract_transform_reviews() -> pd.DataFrame:
 
     reviews = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-06-25/data/reviews.csv.gz')
@@ -300,16 +264,17 @@ def extract_transform_reviews() -> pd.DataFrame:
     return grouped_comments
 
 
+
 def extract_transform_calendar() -> pd.DataFrame:
     calendar = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-06-25/data/calendar.csv.gz')
     # Time series analysis with calendar data
     calendar['date'] = pd.to_datetime(calendar['date'])
     # Convert price to numeric (remove $ and ,)
-    calendar['price'] = calendar['price'].replace('[\$,]', '', regex=True).astype(float)
+    calendar['price'] = calendar['price'].replace(r'[\$,]', '', regex=True).astype(float)
 
     listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-03-19/data/listings.csv.gz')
     # Convert price to numeric (remove $ and ,)
-    listings['price'] = listings['price'].replace('[\$,]', '', regex=True).astype(float)
+    listings['price'] = listings['price'].replace(r'[\$,]', '', regex=True).astype(float)
 
     # availability rate
     # We calculate the corresponding Nights Intended to be available.
@@ -454,6 +419,7 @@ def extract_transform_calendar() -> pd.DataFrame:
 
     return listings[features]
 
+
 def load_data_listings():
     conn = sqlite3.connect('db/airbnb.db')
     df = extract_transform_listings()
@@ -478,133 +444,6 @@ def load_data_calendar():
     conn.close()
     print("Data calendar loaded successfully!")
 
-
-def get_data_from_db(db_path: str, table_name: str) -> pd.DataFrame:
-    """Fetch data from the specified SQLite database table."""
-    conn = sqlite3.connect(db_path)
-    query = f"SELECT * FROM {table_name}"
-    df = pd.read_sql_query(query, conn)
-    conn.close()
-    logging.info(f"Data fetched from {table_name} table in {db_path} database.")
-    return df
-
-
-def id_mapping_database(listings: pd.DataFrame):
-    """Create a mapping between listing IDs and their DataFrame indices in the SQLite database."""
-    # Save id mapping in sqlite, index and id
-    conn = sqlite3.connect('db/airbnb.db')
-    listings.reset_index(drop=False, inplace=True)
-    listings['index_df'] = listings.index
-    listings[['index_df','id']].to_sql('listing_ids', conn, if_exists='replace')
-    conn.close()
-    
-    logging.info("ID mapping for listings saved successfully.")
-
-def transform_text_listings():
-    # Get data from database and encode text listings
-    listings = get_data_from_db("db/airbnb.db", "listings")
-    listings_encoded = encode_text_listings(listings)
-    logging.info("Listings text data encoded successfully.")
-    
-    # Save the encoded listings to a file npy
-    np.save('db/text_embeddings.npy', listings_encoded)
-    logging.info("Text embeddings for listings saved successfully. text_embeddings npy created at db/text_embeddings.npy")
-
-    # Create id mapping in database
-    id_mapping_database(listings)
-
-
-# Train ML model for text embeddings encoding
-def knn_text_model():
-    # if model knn not exists, train it
-    if not os.path.exists('models/knn_model_text_embeddings.pkl'):
-        logging.info("KNN model not found. Training KNN model...")
-        # load data from file npy
-        text_embeddings = np.load('db/text_embeddings.npy', allow_pickle=True)
-        knn = NearestNeighbors(n_neighbors=5, algorithm='auto')
-        knn.fit(text_embeddings)
-        # save model to file pkl
-        joblib.dump(knn, 'models/knn_model_text_embeddings.pkl')
-        logging.info("KNN model trained and saved successfully. Model file created at models/knn_model_text_embeddings.pkl")
-    else:
-        logging.info("KNN model found. Skipping training.")
-
-
-# Find listings similar to a given listing based on text embeddings
-def find_similar_listings(query_text: str, n_neighbors: int = 5):
-    """
-    Finds N most similar listings based on a combination of text query and property attributes.
-
-    Args:
-        query_text (str): A natural language description of desired listing features.
-        query_attributes (dict): A dictionary of desired numerical and categorical attributes
-                                 (e.g., {'price': 100, 'room_type': 'Private room', 'accommodates': 2}).
-        n_neighbors (int): The number of similar listings to return.
-
-    Returns:
-        np.ndarray: An array of indices of the most similar listings in the original DataFrame.
-    """
-    
-    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-
-    # Generate text embedding for query_text
-    query_text_embedding = model.encode(query_text).reshape(1, -1)
-
-    # Load the saved KNN model pkl
-    knn = joblib.load('models/knn_model_text_embeddings.pkl')
-
-    # Use the KNN model to find similar listings
-    distances, indices = knn.kneighbors(query_text_embedding, n_neighbors=n_neighbors)
-
-    return indices.flatten()
-
-# function to query listing by id from database sqlite
-def get_listing_by_id(listing_id: list[int]) -> pd.DataFrame:
-    """
-    Retrieves listing details from the SQLite database based on a list of listing IDs.
-
-    Args:
-        listing_id (list[int]): A list of listing IDs to retrieve.
-    Returns:
-        pd.DataFrame: A DataFrame containing the listing details.
-    """
-
-    # Create a connection to SQLite database
-    conn = sqlite3.connect('db/airbnb.db')
-
-    # Convert list of IDs to a comma-separated string
-    id_tuple = tuple(listing_id)
-
-    # Convert np.int64 to native int
-    id_tuple = tuple(int(i) for i in id_tuple)
-
-    if len(id_tuple) == 1:
-        id_tuple = (id_tuple[0], id_tuple[0])  # Ensure it's a tuple of length 2 for single ID
-
-    # Query to get listings by IDs from listing_ids table and then from listings table
-    query = f"""
-    SELECT l.*
-    FROM listings l
-    JOIN listing_ids li ON l.id = li.id
-    WHERE li.index_df IN {id_tuple}
-    """ 
-    
-    listings_df = pd.read_sql_query(query, conn)
-
-    # decode data for ['property_type', 'room_type', 'neighbourhood_cleansed'] columns
-    # encoder path
-    encoder_property_type = joblib.load('models/label_encoder_property_type.pkl')
-    listings_df['property_type'] = listings_df['property_type'].map(lambda x: encoder_property_type.inverse_transform([x])[0])
-
-    encoder_neighbourhood_cleansed = joblib.load('models/label_encoder_neighbourhood_cleansed.pkl')
-    listings_df['neighbourhood_cleansed'] = listings_df['neighbourhood_cleansed'].map(lambda x: encoder_property_type.inverse_transform([x])[0])
-
-    encoder_room_type = joblib.load('models/label_encoder_room_type.pkl')
-    listings_df['room_type'] = listings_df['room_type'].map(lambda x: encoder_property_type.inverse_transform([x])[0])
-
-    conn.close()
-    return listings_df
-
     
 # Download, extract and load data into database
 def extract_load_data():
@@ -612,57 +451,69 @@ def extract_load_data():
     load_data_reviews()
     load_data_calendar()
 
-# Function to query similar listings and show example usage
-def query_similar_listings_example(query_text: str, n_neighbors: int = 5):
-    """Demonstrates how to find similar listings based on a text query.
-    Returns json with indices and details of similar listings."""
+def initialize_database(conn):
+    sql_dir = Path("sql")
+    with conn.cursor() as cur:
+        for sql_file in sorted(sql_dir.glob("*.sql")):
+            print(f"Running {sql_file.name}")
+            with open(sql_file, "r", encoding="utf-8") as f:
+                cur.execute(f.read())
+    conn.commit()
 
-    # Find similar listings
-    similar_listing_indices = find_similar_listings(
-        query_text=query_text,
-        #query_attributes=sample_query_attributes,
-        n_neighbors=n_neighbors
+
+# Create connection to the database and initialize it
+def create_db_connection() -> psycopg2.extensions.connection:
+    conn = psycopg2.connect(
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5433"),
+        dbname=os.getenv("DB_NAME", "smartbnb"),
+        user=os.getenv("DB_USER", "admin"),
+        password=os.getenv("DB_PASSWORD", "admin")
     )
+    return conn
 
-    # print(f"Indices of {n_neighbors} similar listings:", similar_listing_indices)
-    # print("\nDetails of similar listings:")
+def drop_connection(conn):
+    conn.close()
 
-    result = get_listing_by_id(similar_listing_indices)\
-        [['id', 'name', 'price', 'description', 'listing_url', 'property_type', 'room_type', 'neighbourhood_cleansed']]
-    
-    print("[DEBUG] Result columns:")
-    print(result.columns)
 
-    return result.to_json(orient='records', force_ascii=False)
+def load_data() -> None:
+    listings = extract_transform_listings()
+    # insert into database
+    conn = create_db_connection()
+    with conn.cursor() as cur:
+        for idx, row in listings.iterrows():
+            cur.execute(
+                """
+                INSERT INTO listings (id, name, description, neighborhood_overview, listing_url, price, accommodates, bathrooms, bedrooms, beds, property_type, amenities_n, room_type, calculated_host_listings_count, calculated_host_listings_count_entire_homes, calculated_host_listings_count_private_rooms, calculated_host_listings_count_shared_rooms, host_is_superhost, host_has_profile_pic, host_identity_verified, host_since_delta, host_response_rate, host_acceptance_rate, host_total_listings_count, host_listings_count, review_scores_rating)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s , %s)
+                """,
+                (
+                    row['id'], row['name'], row['description'], row['neighborhood_overview'], row['listing_url'], 0 if str(row['price']) == 'nan' else int(row['price']) , 
+                    int(row['accommodates']), int(row['bathrooms']), int(row['bedrooms']), int(row['beds']), int(row['property_type']), int(row['amenities_n']), 
+                    int(row['room_type']), int(row['calculated_host_listings_count']), int(row['calculated_host_listings_count_entire_homes']), 
+                    int(row['calculated_host_listings_count_private_rooms']), int(row['calculated_host_listings_count_shared_rooms']), 
+                    int(row['host_is_superhost']), int(row['host_has_profile_pic']), int(row['host_identity_verified']), 
+                    int(row['host_since_delta']), int(row['host_response_rate']), int(row['host_acceptance_rate']), 
+                    int(row['host_total_listings_count']), int(row['host_listings_count']), str(row['review_scores_rating']) # placeholder for review_scores_rating
+                )
+            )
 
-def test_query():
-    # Example usage of querying similar listings
-    example_query = "Apartamento bonito con vista y adecuado para familias"
-    json_result = query_similar_listings_example(example_query, n_neighbors=5)
-    print("Similar listings to the query:")
-    print(json_result)
+
+          
+    conn.commit()
+    drop_connection(conn)
 
 if __name__ == '__main__':
 
-    #extract_load_data()
-    #transform_text_listings()
-    #knn_text_model()
+    # print("Initializing database connection...")
+    # conn = create_db_connection()
+    # print("Initializing database from sql files...")
+    # initialize_database(conn=conn)
+    # print("Dropping database connection...")
+    # drop_connection(conn)
 
-    # Extract data and load into database if not exists
-    if not os.path.exists('db/airbnb.db'):
-        logging.info("Database not found. Extracting and loading data...")
-        #extract_load_data()
+    #Extract data and load into database if not exists
+    # if not os.path.exists('db/airbnb.db'):
+    #     extract_load_data()
 
-    # Transform text listings and create embeddings, save to file npy if not exists
-    if not os.path.exists('db/text_eßmbeddings.npy'):
-        logging.info("Text embeddings not found. Transforming text listings to embeddings...")
-        #transform_text_listings() # Run the encoding process
-
-    # Train KNN model for text embeddings if not exists
-    if not os.path.exists('db/knn_text_model.pkl'):
-        logging.info("KNN model not found. Training KNN model for text embeddings...")
-        #knn_text_model() # Train KNN model if not exists
-
-    aniomes_json_str = get_text_reviews_by_id(listing_id=44616)
-    print(aniomes_json_str)
-    
+    load_data()
