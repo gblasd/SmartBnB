@@ -52,6 +52,58 @@ def clean_dataframe(df:pd.DataFrame) -> pd.DataFrame:
     if 'price_quote_price_per_night' in df.columns.to_list():
         df['price_quote_price_per_night'] = df['price_quote_price_per_night'].replace(r'[\$,]', '', regex=True).astype(float)
 
+    def parse_bathrooms(text):
+        import regex as re
+        if pd.isna(text):
+            return 0
+        elif "Half-bath" in text:
+            return 0.5
+        elif "Private half-bath" in text:
+            return 0.5
+        elif "Shared half-bath" in text:
+            return 0.5
+        match = re.search(r"(\d+(?:\.\d+)?)", text)  
+        if match:
+            return float(match.group(1))
+        return 0 
+    
+    df["bathrooms"] = (
+    df["bathrooms"].fillna(
+        df["bathrooms_text"].apply(parse_bathrooms)
+    )
+    )
+    df['bathrooms_text'] = df['bathrooms_text'].fillna(
+        df["bathrooms"].astype(str) + " baths")
+    df['bedrooms'] = df['bedrooms'].fillna(1)
+    df['beds'] = df['beds'].fillna(df['accommodates'] // 2)
+    df['minimum_nights'] = df['minimum_nights'].fillna(1)
+    df['maximum_nights'] = df['maximum_nights'].fillna(365)
+    df["price"] = df["price"].fillna(
+        df.groupby(
+            ["neighbourhood_cleansed", "property_type", "room_type"]
+        )["price"]
+        .transform("mean")
+    )
+
+    df["price"] = df["price"].fillna(
+        df.groupby(
+            ["neighbourhood_cleansed"]
+        )["price"]
+        .transform("mean")
+    )
+
+    df['review_scores_accuracy'] = df['review_scores_accuracy'].fillna(-1)
+    df['review_scores_communication'] = df['review_scores_communication'].fillna(-1)
+    df['review_scores_cleanliness'] = df['review_scores_cleanliness'].fillna(-1)
+    df['review_scores_location'] = df['review_scores_location'].fillna(-1)
+    df['review_scores_value'] = df['review_scores_value'].fillna(-1)
+    df['review_scores_rating'] = df['review_scores_rating'].fillna(-1)
+    df['reviews_per_month'] = df['reviews_per_month'].fillna(-1)
+    df['instant_bookable'] = df['instant_bookable'].fillna(False)
+
+    df['description'] = df['description'].str.replace('<br />', '')
+    df['neighborhood_overview'] = df['neighborhood_overview'].str.replace('<br />', '')
+
     return df
 
 
@@ -92,7 +144,7 @@ if __name__ == "__main__":
         schema.initialize_database()
 
     print('Downloading data from https...')
-    #listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-06-25/data/listings.csv.gz')
+    # listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-06-25/data/listings.csv.gz')
     listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2026-03-30/data/listings.csv.gz')
     print('Cleaning data...')
     listings = clean_dataframe(listings)
