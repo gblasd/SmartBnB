@@ -17,5 +17,5 @@ calendar_loader:
 reviews_loader:
 	cd src && python3 -m ingestion.reviews_loader
 
-pg_to_vec:
-	cd src && python3 -m ingestion.listings_vectordb
+listings_indexing:
+	cd src && python3 -m ingestion.listings_indexing
