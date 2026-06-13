@@ -21,3 +21,5 @@ langchain-chroma>=0.1.2
 langchain-databricks 
 databricks-vectorsearch
 lark
+
+fastapi[standard]

@@ -8,7 +8,7 @@ from chromadb.utils.embedding_functions import (
     SentenceTransformerEmbeddingFunction
 )
 
-class ChromaManager:
+class ChromaManager(Chroma):
     def __init__(
         self,
         collection_name: str = "smartbnb_vector_store",
