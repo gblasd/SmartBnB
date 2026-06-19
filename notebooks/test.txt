@@ -1,0 +1,18 @@
+Document loaders
+
+Use document loader to load data froma a source as 'Document´s'. 
+A Document´s is a piece of text and associated a metadata For example, 
+are documents loaders or loading a simple ´.txt´ file, for loading the text
+contentof any web page, or even for loading  transcript oy YouTube video.
+Use document loader to load data froma a source as 'Document´s'. 
+A Document´s is a piece of text and associated a metadata For example, 
+are documents loaders or loading a simple ´.txt´ file, for loading the text
+contentof any web page, or even for loading  transcript oy YouTube video.
+Use document loader to load data froma a source as 'Document´s'. 
+A Document´s is a piece of text and associated a metadata For example, 
+are documents loaders or loading a simple ´.txt´ file, for loading the text
+contentof any web page, or even for loading  transcript oy YouTube video.
+Use document loader to load data froma a source as 'Document´s'. 
+A Document´s is a piece of text and associated a metadata For example, 
+are documents loaders or loading a simple ´.txt´ file, for loading the text
+contentof any web page, or even for loading  transcript oy YouTube video.

@@ -148,8 +148,8 @@ def ensure_db():
     subprocess.run(["python3", "init_db.py"])
 
 
-ensure_remote_assets()
-ensure_db()
+# ensure_remote_assets()
+# ensure_db()
 
 from query import  handle_tool_calls\
     , system_prompt\

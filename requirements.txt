@@ -23,3 +23,6 @@ databricks-vectorsearch
 lark
 
 fastapi[standard]
+
+folium
+streamlit-folium

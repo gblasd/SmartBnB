@@ -213,3 +213,7 @@ data/
 models/
 
 .DS_Store
+docs
+test/*
+src/test.py
+tests/test_main.py
