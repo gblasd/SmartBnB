@@ -6,8 +6,23 @@ sentence-transformers
 scikit-learn
 joblib
 pydantic
-sentence-transformers
+chromadb
 seaborn
 boto3
 pytest
 psycopg2
+
+langchain
+langchain-openai
+langchain-community
+langchain-chroma>=0.1.2
+
+# Import error
+langchain-databricks 
+databricks-vectorsearch
+lark
+
+fastapi[standard]
+
+folium
+streamlit-folium
