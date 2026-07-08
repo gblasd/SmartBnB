@@ -62,5 +62,3 @@ If you find this project useful, inspiring, or if you are just excited about the
 
 * **Give us a ⭐ Star** at the top right of this page to save it in your dashboard and follow our progress.
 * **Watch the repository** to receive automated notifications whenever we push big feature updates.
-
-*Crafted with 🤖, 🗺️, and 💻 by [Your Name/GitHub Handle](https://github.com/your-username).*
