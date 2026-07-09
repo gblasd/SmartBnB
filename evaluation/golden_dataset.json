@@ -1,0 +1,16 @@
+[
+  {
+    "id": 1,
+    "type": "property_search",
+    "input": {"query": "apartment in Condesa with wifi"},
+    "expected_output": {"has_results": true, "min_results": 1, "neighbourhood": "Condesa"},
+    "tags": ["search", "neighbourhood"]
+  },
+  {
+    "id": 2,
+    "type": "similar_listings",
+    "input": {"listing_id": 1, "k": 3},
+    "expected_output": {"has_results": true, "count": 3},
+    "tags": ["similarity", "knn"]
+  }
+]
