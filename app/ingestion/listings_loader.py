@@ -1,8 +1,14 @@
+import os
+import sys
 import pandas as pd
 
-from database.DatabaseConnection import DatabaseConnection
-from database.DatabaseExecutor import DatabaseExecutor
-from database.SchemaManager import SchemaManager
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from database.connection import DatabaseConnection
+from database.connection import DatabaseExecutor
+from database.connection import SchemaManager
 
 def read_url(link):
     """ Creates a pandas DataFrame from data online
@@ -139,10 +145,8 @@ def load_df_to_database(df:pd.DataFrame) -> None:
 if __name__ == "__main__":
 
     print("Initializing database from sql files...")
-    with DatabaseConnection() as conn:
-        schema = SchemaManager(conn)
-        schema.initialize_database()
-
+    # Create connection to database and initialize schema
+    SchemaManager().initialize_schema()
     print('Downloading data from https...')
     # listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2025-06-25/data/listings.csv.gz')
     listings = read_url('https://data.insideairbnb.com/mexico/df/mexico-city/2026-03-30/data/listings.csv.gz')

@@ -1,10 +1,19 @@
 """Database connection and execution utilities."""
 
 import os
+import sys
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+print(project_root)
+
+import os
 import psycopg2
 import sqlite3
 from psycopg2.extras import RealDictCursor
-from app.config import settings
+from config import settings
 
 class DatabaseConnection:
     """PostgreSQL connection context manager."""

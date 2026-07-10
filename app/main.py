@@ -13,7 +13,7 @@ from app.services.conversation import get_or_create_session, clear_session
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
+    try: # Load vector store
         vs = get_vector_store()
         app.state.vector_store = vs
         print("Chroma vector store loaded")

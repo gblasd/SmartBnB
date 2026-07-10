@@ -1,19 +1,25 @@
 import os
+import sys
 import numpy as np
 import datetime, uuid
 from datetime import datetime
 from decimal import Decimal
 
-# PostgreSQL Database
-from database.DatabaseConnection import DatabaseConnection
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
+# PostgreSQL Database
+from database.connection import DatabaseExecutor
 # Embeddings model and Chat
-from langchain_openai import OpenAIEmbeddings
+from services.embeddings import EmbeddingsModel
 # Prompt template
 from langchain_core.documents import Document
 # Vector database
 from langchain_chroma import Chroma
 import chromadb
+
+from config import settings
 
 CHROMA_PATH = os.path.abspath(os.path.join("..", "db", "chroma_db"))
 # Load environment variables
@@ -43,6 +49,11 @@ def _sanitize_metadata_value(v):
         return str(v)
     return v
 
+def load_query_from_file(file_path: str) -> str:
+    """Load SQL query from a file."""
+    with open(file_path, 'r') as file:
+        return file.read()
+
 # Get Data
 def get_documents_from_pg() -> list:
 
@@ -50,19 +61,7 @@ def get_documents_from_pg() -> list:
     documents = []
     
     # Define query
-    query = """select l.id, l.listing_url, l.name, l.description, l.neighborhood_overview, l.neighbourhood_cleansed,
-        l.property_type, l.room_type, l.accommodates, l.bathrooms, l.bathrooms_text, l.bedrooms, 
-        l.beds, l.amenities, l.price, l.latitude, l.longitude, l.minimum_nights, l.maximum_nights, 
-        l.has_availability, l.review_scores_accuracy, l.review_scores_communication,
-        l.review_scores_cleanliness, l.review_scores_location, l.review_scores_value, 
-        l.review_scores_rating, l.reviews_per_month, l.instant_bookable,
-        l.calculated_host_listings_count, l.calculated_host_listings_count_entire_homes,
-        l.calculated_host_listings_count_private_rooms, l.calculated_host_listings_count_shared_rooms
-    from public.listings l
-   where l.has_availability is true 
-     and l.description is not null
-   order by length(l.description) desc
-   limit 200"""
+    query = load_query_from_file(settings.SQL_GET_LISTINGS)
 
     metadata_keys = ["neighbourhood_cleansed","property_type",
                         "room_type", "bathrooms", "bathrooms_text", "bedrooms", "beds",
@@ -70,39 +69,35 @@ def get_documents_from_pg() -> list:
                         "maximum_nights", "has_availability", 
                         "review_scores_accuracy", "amenities"]
     
-    with DatabaseConnection() as conn:
-        # query data
-        with conn.cursor() as cur:
-            cur.execute(query)
-            records = cur.fetchall()
+    records = DatabaseExecutor().execute(query)
+    if not records:
+        print("No documents!!!")
+        return
+        
+    for i, col in enumerate(records[0]):
 
-            if not records:
-                print("No documents!!!")
-                return
+        # Insert record into database collection
+        row = {}
+        row["metadata"] = {
+            col.name: _sanitize_metadata_value(i) 
+            for i, col in enumerate(records[0])
+            if col in metadata_keys
+        }   
 
-            for record in records:
-                # Add the record to the vector database collection
-                row = {}
-                row["metadata"] = [{
-                    col.name: _sanitize_metadata_value(record[i]) 
-                    for i, col in enumerate(cur.description) 
-                    if col.name  in metadata_keys
-                }]
+        # Convert amenities from string to list
+        if "amenities" in row["metadata"]:
+            amenities_str = row["metadata"]["amenities"]
+            amenities_list = [amenity.strip() for amenity in amenities_str.split(",")]
+            row["metadata"]["amenities"] = amenities_list
 
-                # Convert amenities from string to list
-                if "amenities" in row["metadata"][0]:
-                    amenities_str = row["metadata"][0]["amenities"]
-                    amenities_list = [amenity.strip() for amenity in amenities_str.split(",")]
-                    row["metadata"][0]["amenities"] = amenities_list
+        # Create Document object
+        doc = Document(
+            page_content=str(col.value),
+            metadata=row["metadata"],
+            id=col.id
+        )   
 
-                # create Document object            
-                doc = Document(
-                    page_content=str(record[3]),
-                    metadata=row["metadata"][0],
-                    id=record[0]
-                )
-
-                documents.append(doc)
+        documents.append(doc)
 
     return documents
 
@@ -112,19 +107,17 @@ def indexing_vectors():
     documents = get_documents_from_pg()
 
     # Initialize the OpenAI embedding model
-    embeddings_model = OpenAIEmbeddings( 
-        model="text-embedding-3-small", 
-        dimensions=256)
+    embeddings_model = EmbeddingsModel()
     
     vector_store = Chroma.from_documents(
         documents=documents,
         embedding=embeddings_model,
         persist_directory=CHROMA_PATH,
-        collection_name='smartbnb_vector_store'
+        collection_name=settings.CHROMA_COLLECTION
     )
 
     client = chromadb.PersistentClient(path=CHROMA_PATH)
-    collection = client.get_collection('smartbnb_vector_store')
+    collection = client.get_collection(settings.CHROMA_COLLECTION)
     all_data = collection.get()
 
     print("Total rows: ", len(vector_store.get(include=["documents"])["documents"]))
@@ -132,6 +125,9 @@ def indexing_vectors():
 
 
 if __name__ == '__main__':
-    print("Loading data into Chroma from PostgreSQL...")
-    indexing_vectors()
-    print("Finshed...")
+
+    documents = get_documents_from_pg()
+
+    # print("Loading data into Chroma from PostgreSQL...")
+    # indexing_vectors()
+    # print("Finshed...")

@@ -2,9 +2,12 @@
 
 import os
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+load_dotenv()
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = ""
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_EMBEDDINGS_MODEL: str = "text-embedding-3-small"
     OPENAI_MODEL: str = "gpt-4o-mini"
     
     DB_PATH: str = "db/airbnb.db"
@@ -28,6 +31,8 @@ class Settings(BaseSettings):
     AWS_SESSION_TOKEN: str = ""
     
     BACKEND_URL: str = "http://localhost:8000"
+
+    SQL_GET_LISTINGS: str = os.path.join(os.path.dirname(__file__), "..", "sql", "get_listings.sql")
 
     class Config:
         env_file = ".env"
