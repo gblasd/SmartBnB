@@ -6,23 +6,29 @@ sentence-transformers
 scikit-learn
 joblib
 pydantic
+pydantic-settings
 chromadb
 seaborn
 boto3
 pytest
 psycopg2
 
+# LangChain ecosystem
 langchain
 langchain-openai
 langchain-community
 langchain-chroma>=0.1.2
+langchain-core
 
-# Import error
-langchain-databricks 
-databricks-vectorsearch
-lark
+# LangGraph (Layer 2 agent orchestration)
+langgraph>=0.2.0
 
+# BM25 sparse retrieval
+rank-bm25>=0.2.2
+
+# FastAPI
 fastapi[standard]
 
+# Visualisation
 folium
 streamlit-folium
